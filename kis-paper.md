@@ -1,10 +1,9 @@
-KIS: Software testing Instant Service for non-linear development on large software
+KIS: Software testing instant service for development on large open source software
 ================================
 
 Abstract
 --------------------------------
- While Linux kernel, which is an open source software of fairly large and complex scope, is developing very fast with the help of disttribtued version control system(DVCS)--git, current dsitributed development status gives unprecedented difficulties and pressure to the kernel software testing. We present a preliminary study of instant automated software testing for Linux kernel as a instant service and  design a prototype KIS. The goal of KIS is to check the building and running errors of Linux kernel in 1 hours after news commits from hundreds branchs and thousands of kernel developers. Preliminary work suggests it is technically feasible to give timely assitant to kernel developers daily work and reduce accumulated difficulties frome different kinds fo bugs in kernel development life.
-  
+ While open source software of large and complex scope (such as Linux kernel) is developing fast with the help of distributed version control system (such as GIT), current distributed development status gives unprecedented difficulties and pressure to software testing. We present a preliminary study of instant automated software testing for Linux kernel as an instant service and design a prototype KIS. The goal of KIS is to check the building and running errors of Linux kernel in ** short time** (<1 hour) after every new commits from hundreds branches and thousands of kernel developers. Our insights into Linux kernel developer behaviors and attitudes towards software testing allow us to make KIS to provide **precise** bug reports, and to improve their usability and effectiveness **without any harassment**. Preliminary work suggests KIS is technically feasible to give timely assistant to Linux kernel developers in their daily work and reduce amassed difficulties from different kinds of bugs in Linux kernel development life.  
 
 1.Introduction
 --------------------------------
@@ -39,6 +38,7 @@ Current development status of large open source software, specially linux kernel
 
 2.2 Challenges
 
+the analysis of model of  open source software development
 
 3. Priliminary Design and Implementation
 --------------------------------

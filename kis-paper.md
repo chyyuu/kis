@@ -1,121 +1,36 @@
-KIS: Software testing instant service for development on Linux kernel /(large open source software)
+KIS: regression testing instant service for development on Linux kernel /(large open source software)
+
+Given enough eyeballs, all bugs are shallow?
 ================================
 
 Abstract
 --------------------------------
- While open source software of large and complex scope (such as Linux kernel) is developing fast with the help of distributed version control system (such as GIT), current distributed development status gives unprecedented difficulties and pressure to software testing. We present a preliminary study of instant automated software testing for Linux kernel as an instant service and design a prototype KIS. The goal of KIS is to check the building and running errors of Linux kernel in **short time** (<1 hour) after every new commits from hundreds branches and thousands of kernel developers. Our insights into Linux kernel developer behaviors and attitudes towards software testing allow us to make KIS to provide **precise** bug reports, and to improve their usability and effectiveness **without any harassment**. Preliminary work suggests KIS is technically feasible to give timely assistant to Linux kernel developers in their daily work and reduce amassed difficulties from different kinds of bugs in Linux kernel development life.
-
-??? the measured values of shord time/precise/without harassment???
-
-??? how many ommit per hours/days/weeks???
-
-in "Effort Estimation of FLOSS Projexts A Study of the Linux"  30000 commits/day  (6/7 days)
-The density distribution of
-changes (see Figures 4) confirms that some 60-70% of the changes (added, deleted
-or modified lines) always fall in the size cluster of [0-10] lines. more than 95% of such changes are within a [0-100] lines boundary,
-very few changes are over and
-above 1,000 lines per change, and those are usually coupled to a change of opposite
-sign (e.g., a very large commit of added lines coupled to a very large commit of
-deleted lines)
-
-??? the source line changed(+/-/m) per commits  (0~10, 10~100, 100~1000)???
-
-??? 1 hour response time for one commit need how many resource of cpus and memorys ???  
-
-???Are Developers Fixing Their Own Bugs??? 
-
-[Are Developers Fixing Their Own Bugs?Tracing Bug-fixing and Bug-seeding Committers]
-We have detected that less than 5% of the bugfixing
-commits were handled by who first introduced the changes or “seeded” the bug.
-
-The results of this study show, at first, that in 80% of the cases, the bug-fixing activity
-involves source code modified by at most two developers.
-It also emerges that the developers
-fixing the bug are only responsible for 3.5% of the previous modifications to the lines affected.this implies that the other developers making changes to those lines could have made that fix.We conclude by stating that, in most of the cases the bug fixing process in comm-central is not carried out by the same developers than those who seeded the buggy code.
-
-???how and when the buggy source code has been introduced into the repository, how developers deal with this, and which effort needs to be applied and by who???
-
-??? how to Identify bug-fixing and bug-seeding committers???
-
-This algorithm is named as the “SZZ algorithm” and fully detailed in [´Sliwerski et al., 2005]:
-
-there is a 80% of probability that a selected bug-fixing commit was introduced
-by at most two developers
-
-??? the percentage of commits belong to bug fixed ???
-
-it has been found that some 50% of all the commits are detected
-as fixing bugs
+  The distributed version control system, quick rolling development model, looseld coupled developers and complex hug code base give unprecedented difficulties and pressure to current linux kernel regression testing. This paper presented a preliminary study of characteristic of development, bug, patch and developers in linux kernel, and put forward an viewpoint: instead of enough eyeballs, the automated regression testing should be an instant service for kernel developers. An prototype of automated regression testing tool KIS was implementated and could check regression status of every new commits from thousands of kernel developers in **short time** (<1 hour) and test 30,000 kernels per day using 13 servers (??? 208 CPU cores and 416GB memroy ???). Our insights into Linux kernel developer behaviors and attitudes towards regression testing allow us to make KIS to provide **precise** bug reports, and to improve their usability and effectiveness **without any harassment**. In the linux kernel 3.7 development cycle, KIS provide 63 bug reports which were almost 11% of the total.
 
 
-原则：
 
-The whole 'more eyes makes bugs shallow' is nothing but a bad joke.
-
-1 写代码的人对修改自己的代码最容易
-
-2 bug时间越短，约容易修复bug
-
-3 bug越密集，修复bug的难度越高
-
-4 bug存在时间约长，约会引入新的commit,使得bug查找更加困难
 
 1.Introduction
 --------------------------------
+The kernel which forms the core of the Linux system is the result of one of the largest cooperative software
+projects ever attempted. Regular 2-3 month releases deliver updates to Linux users, each with significant
+new features, added device support, and improved performance. The rate of change in the kernel is high and
+increasing, with between 8,000 and 12,000 patches going into each recent kernel release. These releases each
+contain the work of over 1,000 developers representing nearly 200 corporations [Linux Kernel Development How Fast it is Going, Who is Doing It, What They are Doing, and Who is Sponsoring It 2012].  From the statistics in the current linux kernel 3.7 development cycle, 1,271 developers contributed to nearly 12,000 non-merge changesets, nearly 395,000 lines of code were removed, 719,000 lines that were added in 90 days???[Statistics from the 3.7 development cycle [LWN.net]]. But the regression  
 
-1.1 Lifecycle models for long-lived software projects 
+图表
+http://www.gossamer-threads.com/lists/linux/
 
-The field of software engineering grew from the perception that
-the practice of software development is in crisis. Too many projects
-are late, over budget, or do not provide the expected functionality.
-This is especially problematic with large-scale systems, where hundreds
-of millions of dollars may be wasted on failed efforts. Many
-such failures may be rooted in a failure to recognize and use perpetual
-development as described above (Gilb, 1988; Woodward,
-1999; Denning et al., 2008). Basically, projects that attempt to do
-too much at once will most probably fail in one way or another
-(Hoare, 1981). An ironic outcome of this is that the burst of the hitech
-bubble in 2001 led to an improvement in project success rates,
-because the reduced budgets led to smaller, more focused projects
-(Hayes, 2004). This underscores the importance of the incremental
-approach to project development: using increments reduces the
-scope being considered at each step, which makes it realizable.
++2.6.1-* +patch* 
++2.6.1  +patch* 
 
-Classical software lifecycle  typically partition the software’s
-life into two periods: development and maintenance. The
-models focus on the development, further partitioning it into
-phases and articulating its iterative nature. The implication of such models is that the full system size is expected to be achieved at the end of development.
++2.6.1-* +patch* +fix*  
++2.6.1 +patch* +fix* 
 
-Lifecycle models for long-lived software projects
++3.1-* regression* bug* -patch* -fix*
++3.1 regression* bug* -patch* -fix*
 
-Classical software lifecycle models typically cover the development
-from a concept to a delivered software product. A recurring
-feature in early models such as the waterfall model and the V
-model was the quest for stability. First, one needs to get all the
-requirements right. This is then used to formalize comprehensive
-specifications. Given the specifications, we can create a design that
-satisfies them, and so on. But this scenario is often simply irrelevant
-in real life, because the clients can’t articulate all their requirements
-in advance, so specifications are never complete, leading to designs
-that will have to change when more requirements are discovered
-
-As a result of focusing on the initial development, up to product
-delivery, common lifecycle models do not apply to the full life-span
-of long-lived software products. In particular, they do not describe
-the relationship between successive releases of the product. This
-has prompted the development of specialized lifecycle models to
-fill this gap.
-
-Doing automated testing in a cloud instead of on individual developers’
-machines increases the available compute power by orders
-of magnitude. In the past, faster CPUs enabled increased levels
-of interactivity in development, such as quick compile-retry cycles.
-Cloud-based computation, offering vast numbers of fast CPUs with
-plenty of memory, could engender a similar transformation, with
-TaaS becoming a seamless extension of a developer’s environment.
-If automated testing techniques can be adapted to scale up on cloud
-infrastructures, they can yield the order-of-magnitude lower bug
-density and higher programmer productivity we seek.
+https://groups.google.com/forum/?fromgroups#!searchin/linux.kernel/regression$20OR$20bug$202.6.0
 
 1.2 Crrent status of testing
 
@@ -398,6 +313,8 @@ result, some versions are singled out for “longterm” maintenance,
 and updated in parallel to subsequent releases.
 
 bug发展趋势，不过不是独立的，可能与其他代码有联系，而其他代码是频繁变化的，导致bug越老，分析bug在新的代码上是否成立需要花很大的精力，或者这个已经不是bug或被fix掉了。
+
+[Perpetual Development: A Model of the Linux Kernel Life Cycle] 2011
 
 Given that the main changes in the compressed release model
 result from merging new functionality during a merge window, one

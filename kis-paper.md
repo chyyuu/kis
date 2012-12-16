@@ -1,24 +1,71 @@
 KIS: regression testing instant service for development on Linux kernel /(large open source software)
+================================
+
+OR
 
 Given enough eyeballs, all bugs are shallow?
 ================================
 
 Abstract
 --------------------------------
-  The distributed version control system, quick rolling development model, looseld coupled developers and complex hug code base give unprecedented difficulties and pressure to current linux kernel regression testing. This paper presented a preliminary study of characteristic of development, bug, patch and developers in linux kernel, and put forward an viewpoint: instead of enough eyeballs, the automated regression testing should be an instant service for kernel developers. An prototype of automated regression testing tool KIS was implementated and could check regression status of every new commits from thousands of kernel developers in **short time** (<1 hour) and test 30,000 kernels per day using 13 servers (??? 208 CPU cores and 416GB memroy ???). Our insights into Linux kernel developer behaviors and attitudes towards regression testing allow us to make KIS to provide **precise** bug reports, and to improve their usability and effectiveness **without any harassment**. In the linux kernel 3.7 development cycle, KIS provide 63 bug reports which were almost 11% of the total.
+  The distributed version control system, quick rolling development model, looseld coupled developers and complex huge code base give unprecedented difficulties and pressure to current linux kernel regression testing. This paper presented a preliminary study of characteristic of development, bug, patch and developers in linux kernel, and put forward an viewpoint: instead of enough eyeballs, the automated regression testing should be an instant service for kernel developers. An prototype of automated regression testing tool KIS was implementated and could check regression status of every new commits from thousands of kernel developers in **short time** (<1 hour) and test 30,000 kernels per day using 13 servers (??? 208 CPU cores and 416GB memroy ???). Our insights into Linux kernel developer behaviors and attitudes towards regression testing allow us to make KIS to provide **precise** bug reports, and to improve their usability and effectiveness **without any harassment**. In the linux kernel 3.7 development cycle, KIS provide 63 bug reports which were almost 11% of the total.
 
 
 
 
 1.Introduction
 --------------------------------
-The kernel which forms the core of the Linux system is the result of one of the largest cooperative software
-projects ever attempted. Regular 2-3 month releases deliver updates to Linux users, each with significant
-new features, added device support, and improved performance. The rate of change in the kernel is high and
-increasing, with between 8,000 and 12,000 patches going into each recent kernel release. These releases each
-contain the work of over 1,000 developers representing nearly 200 corporations [Linux Kernel Development How Fast it is Going, Who is Doing It, What They are Doing, and Who is Sponsoring It 2012].  From the statistics in the current linux kernel 3.7 development cycle, 1,271 developers contributed to nearly 12,000 non-merge changesets, nearly 395,000 lines of code were removed, 719,000 lines that were added in 90 days???[Statistics from the 3.7 development cycle [LWN.net]]. But the regression  
+
+In 1997, Eric Steven Raymond wrote a famous paper "The Cathedral and the Bazaar", and he put forward famous "Linus's Law", less formally, "Given enough eyeballs, all bugs are shallow.". Linus was directly aiming to maximize the number of person-hours thrown at debugging and development, even at the
+possible cost of instability in the code and user-base burnout if any serious bug proved intractable.The linux kernel hackers beleive that given a large enough beta-tester and co-developer base, almost every problem will be characterized quickly and the fix obvious to someone. [The Cathedral and the Bazaar paper]. 
+
+From the statistic from the linux kernel source code repository in 8~10 years, we can see the rate of change in the kernel is high and increasing, with between 8,000 and 12,000 patches going into each recent kernel release. These releases each contain the work of over 1,000 developers representing nearly 200 corporations [Linux Kernel Development 2012].  There are more new or improved subsystems were added, more regressions or bugs were fixed, more developers joined the active kernel hacker group. Almost all these statistical data from  industry or academiia[????]  rveal the linux kernel will be more stable in current develop mode and the plentiful diligent top hackers??.  
+
+An important signal of this paper is that archor kernel stability's hope on enough eyeballs of kernel developers/testers in open source communication are wrong. We urge the kernl development community to give
+them their due share of attention. From our  investigate, we consider there are  unprecedented bug/regression-finding/bug-fixing difficulties and pressure to current and nearly future development of linux kernel, and the main factors make "Linus's Law" become invalid are the distributed version control system, quick rolling development model, looseld coupled developers with Novelty Seeking psychology and complex huge code base. 
+
+The develop mode based on git is a double-edge sword. On the one hand, git allow developer spend more time developing in private local software repository, so more developers can work in the different or same part of linux kernel parallelly. On the other hand, one hacker's changesets in kernel carry bugs and regressions which will influence the other parts developed by other hackers. Judging by the pains that a typical kernel developer encountered in the daily hacking, there are a lot tesing improvements need to be proposed.
+
+The shape of kernel developers like a pyamid, the peak point is Linus, the second level includes senior maintainers, suach as Andrew Morton, etc, the third level includes subsystem maintianers, the last level developers are new featuren providers, driver providers, kernel testers, etc. The most part of kernel developers were in low level and focused on provding new features ,and only a few were interested in kernel testing. Kernel testing requires (a) that the testers are able, diligent, and motivated enough to do boring test works from day to day; (b) that the tester can easily repeat the errors and give the detailed accurate information to the right responsible developer.[KS2012: The future of kernel regression tracking]. If someone have above ability, they will choose to be a kernel developer provding new features with great honour. The high level maintainers have to do a lot of merge work alone with testing works, but they are too busy to do sufficient testing works. So there are not  enough eyeballs.
+
+The Linux kernel keeps growing in size over time as more hardware is supported and new features are added. The kernel 3.2 grow in size of  15 million lines since its first release - a mere 10,000 lines of code - came out
+in 1991. although the number of kernel developer steadily increased, the increasing rate of kernel code is higher than that of developers. No one can understand all current kernel codes, and every kernel developer only understand smaller and smaller proportion of kernel following the ever-increasing size of kernel. Therefore the bugs which crosss the territories of kernel developers will be hard to find and fix. 
+
+Instead of needing more testers, we consider scalable automated kernel testing tool should help to resolve above-mentioned difficuties. By using  appropriate scale of backend computers, the instant service of automative regression testing could be provided to rapid detect potential bugs and send bug reports to kernel developer after every git commits from all linux kernel git trees. As far as we know, it looks like a huge plan without previous attempt.   
+  
+As a first step, this paper outlines how we primary study, design and implementation the automative regression testing instant service prototype for development on Linux kernel. Two challenges make atuomative testing serverice difficult. The first is hwo to quantitative analyze the current characteristics and relations of the distributed version control system, development model, kernel developers and kernel source code. And give the statistical evidences to prove the "Linus's Law" is broken.
+
+The second challenge is hwo to deisgn and implementate an instant service of automative regression testing. There are three requirements for this service: instant testing process, accurate bug report, wide testing coverage. Build errors are often regarded as trivial ones. However we obviously lack an
+effective way to prevent many of them from leaking into Linus' tree, not to
+mention the linux-next tree, where it hurts many -mm developers. Runtime oopses are more challenging. As you may discover in LKML, lots of the bug reports are simply ignored, because it's often really hard to track down
+user reported problems. Hard-to-reproduce bugs are virtually not fixable; bugs
+for old kernels are not cared by upstream developers; regressions not bisected
+down to one particular commit could kill quite some brain cells, and there is
+the question "who is to blame for this bug?". To be frank, the only way
+to guarantee the prompt fix of a bug is to explicitly tell the developer: hi,
+your XXX commit triggered this YYY bug.  
+ 
+To address these challenges, we first collect data and information from Linux Kernel Mail List(LKML), Linux kernel Git Trees (LKGT) in 8~10 years. From the comprehensive achives in LKML and LKGT, only only the source size/patchs/fixed bugs/number of developers could be collected, the effort and activity estimation on the kernel developer and testers also coue be analyzed. These static data and analysis results support our viewpoints. 
+
+Then we designed and implementated an prototype of automated regression testing service KIS. To improve the speed of testing, we use cacheing technology to buffer the compilled/checked files. We also use memory disk and multicore optimization to fasting  tesing procedure. To find more bugs, we use static and dynamic tools to check the every kernel. To automative find the bug producers, we design tool to analyze the human readable output from GCC, analysis tools and OOPS log messages. Now KIS could check regression status of every new commits from thousands of kernel developers in 1 hour and test 30,000 kernels per day using 13 servers. In the linux kernel 3.7 development cycle, KIS provide 63 bug reports which were almost 11% of the total.     
+
+So far, this research has achieved two main contributions. First, through an initial quantitative study of linux kernel development process, we show that they are a real threat on linux kernel quality and stability. Second, we have designed and implemented a preliminary prototype of automated regression testing service KIS. To the best of our knowledge, KIS is the first automated regression testing service for linux kernel developer and has already been used in Linux kernel 3.7 development.
+
+
+完成“title”、“Abstract”、"abstract"部分的初稿
+================================
+
+下面的部分需要继续修改和完成
+================================
+
+
+Some the number or lifetime of regression or bugs in linux kernel is reduced.
 
 图表
+
+
+From Linux Foundation
+Linux Kernel Development March 2012
 lkml统计站点 2011.12.30~2012.12
 http://www.kernelhub.org/
 

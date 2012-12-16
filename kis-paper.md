@@ -19,6 +19,9 @@ increasing, with between 8,000 and 12,000 patches going into each recent kernel 
 contain the work of over 1,000 developers representing nearly 200 corporations [Linux Kernel Development How Fast it is Going, Who is Doing It, What They are Doing, and Who is Sponsoring It 2012].  From the statistics in the current linux kernel 3.7 development cycle, 1,271 developers contributed to nearly 12,000 non-merge changesets, nearly 395,000 lines of code were removed, 719,000 lines that were added in 90 days???[Statistics from the 3.7 development cycle [LWN.net]]. But the regression  
 
 图表
+lkml统计站点 2011.12.30~2012.12
+http://www.kernelhub.org/
+
 http://www.gossamer-threads.com/lists/linux/
 
 +2.6.1-* +patch* 

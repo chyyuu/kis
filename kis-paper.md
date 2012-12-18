@@ -26,9 +26,8 @@ them their due share of attention. From our investigate, we consider there are u
 
 From our investigate on bugzilla.kernel.org, we found current bug detection technologies and tools can effectively reduce the diagnosis and resolution time of memory bugs (such as NULL pointer, memory leak, etc.). However, we also found that there still exist many simple memory bugs such as NULL pointer dereferences and uninitialized memory reads, indicating memory bug detection tools have not been used at their full capacity.  Concurrency bugs account for a small portion of bug reports, probably because they are underreported. But semantic bugs(configure bug, app-special bug ) are the dominant root causes, as they are application specific and difficult to fix.
 
-The development model based on git is a double-edge sword. On the one hand, git allow developer spend more time developing in private local software repository, so more developers can work in the different or same part of linux kernel parallelly. On the other hand, one hacker's changesets in kernel carry bugs and regressions which will influence the other parts developed by other hackers. Judging by the pains that a typical kernel developer encountered in the daily hacking, there are a lot tesing improvements need to be proposed for kernel developtment model.
+From 2005, kernel development has been based on git. And kernel development has been using the open source paradigm that allows programmers from the Internet to read, redistribute, and modify the source code. For quality control, Linus usually allow only a small set of experienced developers (containers or gatekeepers) to check code changes into the main branch of the software.This development model based on git is a double-edge sword. On the one hand, git allow developer spend more time developing in private local software repository, so more developers can work in the different or same part of linux kernel parallelly. On the other hand, one hacker's changesets in kernel carry bugs and regressions which will influence the other parts developed by other hackers. Judging by the pains that a typical kernel developer encountered in the daily hacking.  An interesting question is whether this development model takes a much shorter time to fix kernel regressions and other kernel bugs?
 
-The shape of kernel developers like a pyamid, the peak point is Linus, the second level includes senior maintainers, suach as Andrew Morton, etc, the third level includes subsystem maintianers, the last level developers are new featuren providers, driver providers, kernel testers, etc. The most part of kernel developers were in low level and focused on provding new features ,and only a few were interested in kernel testing. Kernel testing requires (a) that the testers are able, diligent, and motivated enough to do boring test works from day to day; (b) that the tester can easily repeat the errors and give the detailed accurate information to the right responsible developer.[KS2012: The future of kernel regression tracking]. If someone have above ability, they will choose to be a kernel developer provding new features with great honour. The high level maintainers have to do a lot of merge work alone with testing works, but they are too busy to do sufficient testing works. So there are not  enough eyeballs.
 
 The Linux kernel keeps growing in size over time as more hardware is supported and new features are added. The kernel 3.2 grow in size of  15 million lines since its first release - a mere 10,000 lines of code - came out
 in 1991. although the number of kernel developer steadily increased, the increasing rate of kernel code is higher than that of developers. No one can understand all current kernel codes, and every kernel developer only understand smaller and smaller proportion of kernel following the ever-increasing size of kernel. Therefore the bugs which crosss the territories of kernel developers will be hard to find and fix. 
@@ -53,20 +52,136 @@ To address these challenges, we first collect data and information from Linux Ke
 
 Then we designed and implementated an prototype of automated regression testing service KIS. To improve the speed of testing, we use cacheing technology to buffer the compilled/checked files. We also use memory disk and multicore optimization to fasting  tesing procedure. To find more bugs, we use static and dynamic tools to check the every kernel. To automative find the bug producers, we design tool to analyze the human readable output from GCC, analysis tools and OOPS log messages. Now KIS could check regression status of every new commits from thousands of kernel developers in 1 hour and test 30,000 kernels per day using 13 servers. In the linux kernel 3.7 development cycle, KIS provide 63 bug reports which were almost 11% of the total.     
 
-So far, this research has achieved two main contributions. First, through an initial quantitative study of linux kernel development process, we show that they are a real threat on linux kernel quality and stability. Second, we have designed and implemented a preliminary prototype of automated regression testing service KIS. To the best of our knowledge, KIS is the first automated regression testing service for linux kernel developer and has already been used in Linux kernel 3.7 development.
+So far, this research has achieved two main contributions. First, through an initial quantitative study of linux kernel development process, we show that they are a real threat on linux kernel quality and stability. Second, we have designed and implemented a preliminary prototype of automated regression testing service KIS. To the best of our knowledge, KIS is the first automated regression testing service for linux kernel developer and has already been used in Linux kernel 3.7 development. Overall, our results not only provide software testing development with a new understanding about software regressions, but also enlighten new bug detection and recovery techniques, suggesting where effort should be put into.
 
 
-2. Analysis regression/bug finding process
+2. understanding kernel regression
 --------------------------------
 
-2.1 the lifetime of regressions
+2.1  source of regressions
 --------------------------------
 
+To discover which factors will result in possible regressons in kernel development cycle, we collect and study the data from the main sites which kernel developer provide development and communication information. The main sites include git.kernel.org (Linux Kernel Git Repositories, LKGR), bugzilla.kernel.org(Linux Kernel Bug Tracker, LKBT), The Linux kernel mailing list (LKML).
 
+LKGR is the main kernel source code repositories, and contains 300+ important git trees and about 100~1000 patchs applied in every days kernel development. From LKGR, we can get every commits/patchs in kernel development cycle, and analyze the change rates difference between new features and regression fixes, the number and lifetime of regressions, etc. 
+ 
+LKBT is the main kernel bug reports database.The whole kernel bug databases contain 20,000+ of bug
+reports. According to root causes, bugs can be classified into three disjoint categories, Memory, Concurrency, and Semantic.To ensure correct classification, we only study fixed runtime bugs whose root causes
+can be identified from reports because unfixed bugs may be invalid and root causes described in the reports can be wrong. In this way, we randomly select 548 fixed bug reports from the LKBT.  From LKBT, we can analyze the lifetime, distribution, etc. of bugs.
+
+[http://en.wikipedia.org/wiki/Linux_kernel_mailing_list]LKML is the main electronic mailing list for Linux kernel development, where the majority of the announcements, discussions, debates, and flame wars over the kernel take place. Many other mailing lists exist to discuss the different subsystems and ports of the Linux kernel, but LKML is the principal communication channel among Linux kernel developers.[4] It is a very high volume list, usually receiving about 500 messages each day. Linux utilizes a workflow governed by LKML,[5] which is the Bazaar where kernel development takes place. In his book Linux Kernel Development, Robert Love notes:[3] If the Linux kernel community had to exist somewhere physically, it would call the Linux Kernel Mailing List home. From LKML, we can analyze the extent of activity and interesting point,etc.
+
+2.2 analysis of regressions
+------------------------------
+2.2.1 the model of kernel developement
+---------------------
+First, we should study the details of kernel development and the organization of kernel developers. When a kernel developer want to add  new features or functions to mainline kernel, he should give the patchs and description in LKML. If the maintainer has close relation with this patch think the idea and code is acceptable, he will put the patch in his sub-system tree. At the beginning of each development cycle, the "merge window" is said to be open. Developer and maintainer will try to put the new patch into the mainline kernel tree(in LKGR). At that time, new patch which is deemed to be sufficiently stable (and which is accepted by the kernel development community) is merged into the mainline kernel. The bulk of changes for a new development cycle (and all of the major changes) will be merged during this time.
+
+The merge window lasts for two weeks. At the end of this time, Linus Torvalds will declare that the window is closed and release the first of the "rc" kernels. For the kernel which is destined to be 3.7, for example, the release which happens at the end of the merge window will be called 3.7-rc1. The -rc1 release is the signal that the time to merge new features has passed, and that the time to stabilize the next kernel has begun.
+
+Over the next six to ten weeks, only patches which fix regressions should be submitted to the mainline. The bug report and fixing information will be stored in LKML and LKBT. As fixes make their way into the mainline, the patch commits will be recorded in LKGR. Linus releases new -rc kernels about once a week; a normal series will get up to somewhere between -rc6 and -rc9 before the kernel is considered to be sufficiently stable and the final 3.7 release is made. At that point the whole process starts over again.
+
+From the model of kernel development, we can analyze the organization of kernel developers. The shape of kernel developers like a pyamid. The peak point is Linus, the second level includes senior maintainers, suach as Andrew Morton, etc, the third level includes subsystem maintianers, the last level developers are new featuren providers, driver providers, kernel testers, etc. The most part of kernel developers were in low level and focused on provding new features ,and only a few were interested in kernel testing. Kernel testing requires (a) that the testers are able, diligent, and motivated enough to do boring test works from day to day; (b) that the tester can easily repeat the errors and give the detailed accurate information to the right responsible developer.[KS2012: The future of kernel regression tracking]. If someone have above ability, they will choose to be a kernel developer provding new features with great honour. The high level maintainers have to do a lot of merge work alone with testing works, but they are too busy to do sufficient testing works. 
+
+2.2.2 lifetime and state of kernel regressions
+[need a picture]
+Second, we should study the lifetime of kernel regressions in kernel development. From the  kernel development process, we can see the different stage and duration of the kernel regressions.
+
+ 1. the birth of kernel regressions are derived from patches with new features and funcitons which is described in LKML; (uncertian weeks)
+ 1. then the kernel regressions will follow the new feature patches to exist in the git trees maintained by the close related sub-system maintainer; (uncertian weeks)
+ 1. after the continuous improving of the patches, the kernel regressions will follow  patches to exist in the linux-next git tree; (8~12 weeks)
+ 1. In beginning of the next version of kernel development , the kernel paches with the kernel regressions will be choosed by Linus to exist in mainline git tree. (2 weeks)
+ 1. In mainline improving stage of the next version of kernel development, the kernel paches with the kernel regressions will be updated many times; (6~10 weeks)
+ 1. After release of the  next version of kernel, the kernel regressions will become the working kernel bugs.
+ 
+ From the 1~5 stage, the new kernel regressions may will be born, and some existing kernel regressions may will be fixed. In our study, we focus on the characteristics of kernel regressions that manifest at stage 1~5.
+
+2.3 Automatic Analysis
+ 
+To ensure correct analysis, we only study fixed kernel regressions that manifest at stage 1~5, and the  root causes of these regressions can be identified from LKGR/LKML/LKBT. Because unfixed bugs may be invalid
+and root causes described in the reports can be wrong.
+
+To verify the analysis results from the sampled datasets, we propose a novel method to automatically analyze large dataset of bugs reports in LKBT, linux kernel mails in LKML and commits info in LKGR. Specifically, we apply text classification and information retrieval techniques on the these dataset to automatically analyze below information in one kernel development cycle:
+ 1. the classfication of kernel regressions.
+ 1. the distribution of different type of kernel regressions and wroking bugs.
+ 1. the lifetime of difference type of kernel regressions.
+ 1. the effort extent of finding regression/fix regressions/adding new features.
+ 1. the number of new features/kernel regressions.
+  
+Our analysis method consists of the following steps:
+
+ 1. Preprocessing infomation in LKGR/LKBT/LKML, each bug report may contain the following information: bug ID, summary, time,
+status, reporter, assignee, etc. We represent bug documents in word level, called bag-of-words approach. Each word in bug documents is parsed into an index. Each bug document is represented by a vector. 
+
+ 1. We use the manually-labeled bugs as a training set to produce classification models for different categories of bugs. We use  classifier learning methods with tuned parameters (such as support vector machine(SVM), etc.) to get the more accuracte classification.
+
+2.4 Root Cause Analysis
+
+We analyze the statistic results based on  datasets, and present the root causes of regressions in kernel development cycle and compare our results with those in the previous studies [???], so that we can understand some important regressions characteristic changes.
+
+  1. There are three type of kernel regressions: memory, concurrency, Semantic. the most parts of regressions are  simple sematic regressions, and second parts are simple sematic regressions, these regressions belong to the same patchs/changeset. and these regressions have been fixed in the development cycle. The complex sematic and concurrent regressions seldom have been found and have changed to working bugs which would be found and fixed in long time.
+
+  1. The activity and effort extent of adding new features is much higher than those of finding regression, and those of finding regression is higher than thos of fixing regressions. If a regressions bug becomes a working bugs, then the efforts and time to fix the bug will much expensive than regressions. If the find time of a working bugs is more late, then there are less probability to be fixed. So there are lot of unclear bug reports lead to the potential bugs is very hard to fix.
+
+Based on the linux sucessfully development process near 20 years, the famous paper "The Cathedral and the Bazaar" and a lot of research papers, people almost acknowledged: Because of "Linus's Law", less formally speaking, "Given enough eyeballs, all bugs are shallow.",  "Release Early, Release Often" should be the critical part of linux development model. And this model will ensure the persistent dependabiility of Linux.
+
+From our root cause analysis, we consider above mention "Linus's Law" and  "Release Early, Release Often" model are unable to estabilish in current development situlation. First, there are not enought eyeballs. The kernel evelopers don't like to finding regressions and they are free to choose what to do. They like to use some analysis tools to help them to find some relatively simple regressions. But for some relatively complicated regressions， they have less interest and time. So these relatively complicated regressions will become to working bugs. When the end users or testers find the abnormal phenomenon because of these working bugs, they are hard to descript clearly the root cause, then the developer can not get enough information to fix bug. Second, "Release Early, Release Often" model didn't reduce all bugs. This model only reduce the lifetime of the simple regression bugs, but put the the relatively complex regression changed to the working bugs which need more efforts and time to fix. Along with the accumulation of these relatively complex bugs, the dependabiility of Linux will be reduced.[EXT4, Samsung bugs].
+
+To make "Linus's Law" and  "Release Early, Release Often" model continue being valid in current development situlation, we will provide "enough eyeballs" which is the automative instant regression tesing service for every kernel develoeprs. Below sections will descript why and how about this new regression tesing paradigm for kernel development.
+
+完成“title”、“Abstract”、"abstract"、“analysis of kernel development”部分的初稿
+================================
+
+下面的部分需要继续修改和完成
+================================
+
+3 Desing and IMplementation of KIS
+------------------------------------
+
+3.1 Why we need KIS?
+----------------------
+
+
+3.2 Architecture of KIS
+------------------------
+
+
+3.3 design and optimization of KIS
+-------------------------------------
+
+
+3.4 implemtation of KIS
+----------------------------
+
+
+4  Preliminary Results
+----------------------------
+
+
+5 Related Work     
+----------------------------
+
+6 Discussion and Future Directions
+----------------------------
+
+
+Acknowledgments
+----------------------------
+This work was supported in part by NSF grants
+
+
+From the big scale and small scale of data analysis, we found 
+
+
+widely-used new OSS projects, Mozilla and Apache HTTP Server.
+Randomly Collecting Bugs In our study, we focus on the characteristics
+of software errors that manifest at run time, that is, excluding
+new feature requests, compile-time errors, configuration errors,
+environmental errors, and software maintenance.
 
 There were a lot of researches [Towards Easing the Diagnosis of Bugs in OS Code [07]; Facing the Linux 8000 Feature Nightmare;  Linux bugs: Life cycle, resolution and architectural analysis; Linux Kernel Developer Responses to Static Analysis Bug Reports] focusing on bug finding for linux kernel. Almost all of these researchs are typically thought of as something that you do after the fact, when linux kernels have been written and have been working for a long time. But most linux kernel developers pay more attentions on providing changesets with new features and fix regressions from these new changesets in every linux kernel version upgrade. The average lifetime for kernels regressions is 24.4~32.3 days over the past two years or so. 
 
- So there are different viewpoint or results between researchers and kernel hackers. For example, Some rearcher[An Empirical Study of Operating Systems Errors] calculated the average bug lifetime in linux-1.0~2.4.1 is around 1.8 years, with the median around 1.25 years . Other researchs ["Linux bugs: Life cycle," ]  calculated the average bug lifetime in linux-1.0~2.6.x is aroundis about 2.9 years. However, linux kernel developers 
+So there are different viewpoint or results between researchers and kernel hackers. For example, Some rearcher[An Empirical Study of Operating Systems Errors] calculated the average bug lifetime in linux-1.0~2.4.1 is around 1.8 years, with the median around 1.25 years . Other researchs ["Linux bugs: Life cycle," ]  calculated the average bug lifetime in linux-1.0~2.6.x is aroundis about 2.9 years. However, linux kernel developers 
 
 
 
@@ -86,11 +201,7 @@ fixing and adding new features.
 
 
 
-完成“title”、“Abstract”、"abstract"、“analysis of kernel development”部分的初稿
-================================
 
-下面的部分需要继续修改和完成
-================================
 
 
 Some the number or lifetime of regression or bugs in linux kernel is reduced.
@@ -892,3 +1003,32 @@ Regressions are added to bugzilla one week after they are reported by email, if 
 
 
 峰光关注了mail中提到的bug reports吗
+
+
+Regresssion Bug V.S. Later Discover Bug
+-------------------
+
+The development and testing of the two major problems : Regression Bug Bug Discovery and Late 
+
+What is RegressionBug? Regression Bug is due to Fix Bug lead to the development of new properties or characteristics of the normal work before the strike. This situation often appears in the development of products. 
+
+For purposes of analysis, in turn, is divided into Regression Bug Release Build Regression, and Regression. 
+Release Regression referring to the previous version of a product, the Bug. 
+Build Regression explanation even more complicated. Usually a version of the software development process, there will be a lot of smart, testing will usually take a day or every few days Build a test. Build a Bug, compared with the previous Regression is the Build Regression. 
+
+The main reason is to have Regression Bug : 
+       
+Do not fully tested. 
+Striking an ox from a distance of the Bug, the unit test is very difficult. 
+Test Environment 
+Furthermore, Regression Bug usually have a higher error rate, or the proportion of larger dispute. 
+
+Bug control Regression testing of the modules is generally stressed from the beginning, then the Bug Reopen control, increase the frequency Code Review, the introduction of automatic testing. However, the proportion of Regression Bug Bug in all, in control of 20% to 30% through this method, there will be a beginning of a downward trend. 
+
+Late Discovery Bug is QA pain. The quality of the term, is missed. Release will find many versions of each test not found on the Bug. This will usually 20% to 30%. 
+Late Discovery Bug produce is the main reason : 
+Test coverage. By Black Box Testing, in order to achieve 100% branch Cover rate is not possible. Thus, there is always left out of the Bug. 
+Lamp black, blind testing is personal. Everyone has the brains or blind corners, pre-awareness make people can discover a very obvious problem. 
+Address the following methods : 
+Ad Hoc increased testing prior to design the Case is not in accordance with the implementation of the test. 
+The cross-checking, testing to reduce misunderstanding.

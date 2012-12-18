@@ -19,12 +19,14 @@ Abstract
 In 1997, Eric Steven Raymond wrote a famous paper "The Cathedral and the Bazaar", and he put forward famous "Linus's Law", less formally, "Given enough eyeballs, all bugs are shallow.". Linus was directly aiming to maximize the number of person-hours thrown at debugging and development, even at the
 possible cost of instability in the code and user-base burnout if any serious bug proved intractable.The linux kernel hackers beleive that given a large enough beta-tester and co-developer base, almost every problem will be characterized quickly and the fix obvious to someone. [The Cathedral and the Bazaar paper]. 
 
-From the statistic from the linux kernel source code repository in 8~10 years, we can see the rate of change in the kernel is high and increasing, with between 8,000 and 12,000 patches going into each recent kernel release. These releases each contain the work of over 1,000 developers representing nearly 200 corporations [Linux Kernel Development 2012].  There are more new or improved subsystems were added, more regressions or bugs were fixed, more developers joined the active kernel hacker group. Almost all these statistical data from  industry or academiia[????]  rveal the linux kernel will be more stable in current develop mode and the plentiful diligent top hackers??.  
+From the statistic from the linux kernel source code repository in 8~10 years, we can see the rate of change in the kernel is high and increasing, with between 8,000 and 12,000 changesets(patchs) going into each recent kernel release. These releases each contain the work of over 1,000 developers representing nearly 200 corporations [Linux Kernel Development 2012].  There are more new or improved subsystems were added, more regressions or bugs were fixed, more developers joined the active kernel hacker group. Almost all these statistical data from  industry or academiia[????]  rveal the linux kernel will be more stable in current develop mode and the plentiful diligent top hackers??.  
 
 An important signal of this paper is that archor kernel stability's hope on enough eyeballs of kernel developers/testers in open source communication are wrong. We urge the kernl development community to give
-them their due share of attention. From our  investigate, we consider there are  unprecedented bug/regression-finding/bug-fixing difficulties and pressure to current and nearly future development of linux kernel, and the main factors make "Linus's Law" become invalid are the distributed version control system, quick rolling development model, looseld coupled developers with Novelty Seeking psychology and complex huge code base. 
+them their due share of attention. From our investigate, we consider there are unprecedented bug/regression-finding/bug-fixing difficulties and pressure to current and nearly future development of linux kernel, and the main factors make "Linus's Law" become invalid are the the change of major parts of bug, distributed version control system, quick rolling development model, looseld coupled developers with Novelty Seeking psychology,   and complex huge code base. 
 
-The develop mode based on git is a double-edge sword. On the one hand, git allow developer spend more time developing in private local software repository, so more developers can work in the different or same part of linux kernel parallelly. On the other hand, one hacker's changesets in kernel carry bugs and regressions which will influence the other parts developed by other hackers. Judging by the pains that a typical kernel developer encountered in the daily hacking, there are a lot tesing improvements need to be proposed.
+From our investigate on bugzilla.kernel.org, we found current bug detection technologies and tools can effectively reduce the diagnosis and resolution time of memory bugs (such as NULL pointer, memory leak, etc.). However, we also found that there still exist many simple memory bugs such as NULL pointer dereferences and uninitialized memory reads, indicating memory bug detection tools have not been used at their full capacity.  Concurrency bugs account for a small portion of bug reports, probably because they are underreported. But semantic bugs(configure bug, app-special bug ) are the dominant root causes, as they are application specific and difficult to fix.
+
+The development model based on git is a double-edge sword. On the one hand, git allow developer spend more time developing in private local software repository, so more developers can work in the different or same part of linux kernel parallelly. On the other hand, one hacker's changesets in kernel carry bugs and regressions which will influence the other parts developed by other hackers. Judging by the pains that a typical kernel developer encountered in the daily hacking, there are a lot tesing improvements need to be proposed for kernel developtment model.
 
 The shape of kernel developers like a pyamid, the peak point is Linus, the second level includes senior maintainers, suach as Andrew Morton, etc, the third level includes subsystem maintianers, the last level developers are new featuren providers, driver providers, kernel testers, etc. The most part of kernel developers were in low level and focused on provding new features ,and only a few were interested in kernel testing. Kernel testing requires (a) that the testers are able, diligent, and motivated enough to do boring test works from day to day; (b) that the tester can easily repeat the errors and give the detailed accurate information to the right responsible developer.[KS2012: The future of kernel regression tracking]. If someone have above ability, they will choose to be a kernel developer provding new features with great honour. The high level maintainers have to do a lot of merge work alone with testing works, but they are too busy to do sufficient testing works. So there are not  enough eyeballs.
 
@@ -32,6 +34,8 @@ The Linux kernel keeps growing in size over time as more hardware is supported a
 in 1991. although the number of kernel developer steadily increased, the increasing rate of kernel code is higher than that of developers. No one can understand all current kernel codes, and every kernel developer only understand smaller and smaller proportion of kernel following the ever-increasing size of kernel. Therefore the bugs which crosss the territories of kernel developers will be hard to find and fix. 
 
 Instead of needing more testers, we consider scalable automated kernel testing tool should help to resolve above-mentioned difficuties. By using  appropriate scale of backend computers, the instant service of automative regression testing could be provided to rapid detect potential bugs and send bug reports to kernel developer after every git commits from all linux kernel git trees. As far as we know, it looks like a huge plan without previous attempt.   
+
+Current researchers[] proposed a lot of new method to find kernel bugs and get inspiring results. But researchers and kernel developers take care different type of kernel bugs. Researcher dig working kernel bugs. A working kernel bug is an error, flaw, mistake, failure, or fault in a computer program or system that produces an incorrect or unexpected result, or causes it to behave in unintended ways in released linux kernel. Kernel developers were busy in kernel development, and they forcused on kernel developing kernel bugs. A developing kernel bug is a kernel regression. This special type of kernel bug comes from [http://en.wikipedia.org/wiki/Software_regression] the new features or new bug fixes and  makes a feature stop functioning as intended, makes system  performs slowly or uses more memory in the developing linux kernel in kernel development cycle. This important difference makes current bug-finding research results could not directly used to help kernel developer to find and fix kernel regressoin in development time. We need new method to resolve this problem. 
   
 As a first step, this paper outlines how we primary study, design and implementation the automative regression testing instant service prototype for development on Linux kernel. Two challenges make atuomative testing serverice difficult. The first is hwo to quantitative analyze the current characteristics and relations of the distributed version control system, development model, kernel developers and kernel source code. And give the statistical evidences to prove the "Linus's Law" is broken.
 
@@ -52,7 +56,37 @@ Then we designed and implementated an prototype of automated regression testing 
 So far, this research has achieved two main contributions. First, through an initial quantitative study of linux kernel development process, we show that they are a real threat on linux kernel quality and stability. Second, we have designed and implemented a preliminary prototype of automated regression testing service KIS. To the best of our knowledge, KIS is the first automated regression testing service for linux kernel developer and has already been used in Linux kernel 3.7 development.
 
 
-完成“title”、“Abstract”、"abstract"部分的初稿
+2. Analysis regression/bug finding process
+--------------------------------
+
+2.1 the lifetime of regressions
+--------------------------------
+
+
+
+There were a lot of researches [Towards Easing the Diagnosis of Bugs in OS Code [07]; Facing the Linux 8000 Feature Nightmare;  Linux bugs: Life cycle, resolution and architectural analysis; Linux Kernel Developer Responses to Static Analysis Bug Reports] focusing on bug finding for linux kernel. Almost all of these researchs are typically thought of as something that you do after the fact, when linux kernels have been written and have been working for a long time. But most linux kernel developers pay more attentions on providing changesets with new features and fix regressions from these new changesets in every linux kernel version upgrade. The average lifetime for kernels regressions is 24.4~32.3 days over the past two years or so. 
+
+ So there are different viewpoint or results between researchers and kernel hackers. For example, Some rearcher[An Empirical Study of Operating Systems Errors] calculated the average bug lifetime in linux-1.0~2.4.1 is around 1.8 years, with the median around 1.25 years . Other researchs ["Linux bugs: Life cycle," ]  calculated the average bug lifetime in linux-1.0~2.6.x is aroundis about 2.9 years. However, linux kernel developers 
+
+
+
+
+However,
+for each minor or a path release of the Linux kernel, old
+bugs are resolved simultaneously while new features are being
+added. The popularity of a platform may also be a key factor in
+the resolution time of a bug.
+
+
+First, since Linux is community-developed; a customer
+cannot exert any pressure over the development team for a quick
+resolution of a bug. Kernel developers resolve bugs as they are
+reported. In addition, developers always balance between bug
+fixing and adding new features.
+
+
+
+完成“title”、“Abstract”、"abstract"、“analysis of kernel development”部分的初稿
 ================================
 
 下面的部分需要继续修改和完成

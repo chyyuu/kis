@@ -1,0 +1,59 @@
+#prints the 20 most prolific committers along with their number of commits and their email address.
+git log v3.4..v3.5 | grep Author | cut -d ":" -f 2 | sort | uniq -c | sort -nr | head -n 20
+
+#I want to find all the commits without a gerrit Change-Id tag
+git log -SChange-Id <some anti regex match switch>
+
+#  let＊s say we＊re interested in the list of people who have submitted patches to the js/ engine within the first 6 months of this year
+The interesting bits here are the following:
+
+每format=＊%an <%ae>＊ basically tells git how it should format the information about each commit.  Since we＊re only interested in author names, we only need the name (%an) and the email address (%ae).  You can see the git log man page for a full list of supported formatting tokens.
+每since and 每until allow you to specify date ranges.  You can specify only one of them if you＊re interested in queries such as ※the past 6 months§ or ※the first year of the project§.
+每all tells git-log to show you all of the commits matching the criteria.  Without it, git will walk the parent chain from the HEAD of your branch and stop on the first commit which does not match the criteria.
+每no-merges tells git to ignore merge commits.  If you＊re only interested in genuine patches, merge commits should be ignored since they don＊t really reflect a useful contribution.  See below for a case where you might actually be interested in the merge commits.
+The sed trickery is only there because I wanted to make the lives of spammers a bit harder.
+Figuring out the rest of the shell trickery will be left as an exercise for the reader.
+
+git log --format='%an <%ae>' --since=2012-01-01 --until=2012-07-01 --all --no-merges -- js/ | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+# The list of our most active merge vikings (or, people who＊ve done the most merges):
+
+$ git log --format='%an <%ae>' --all --merges | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+# The list of the people who have backed out the most number of patches:
+
+$ git log --format='%an <%ae>' --all --grep='[Bb]acked *out' --grep='[Bb]ack *out' | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+
+#The list of the people who are most conscious about our RelEng infra resource consumption:
+
+$ git log --format='%an <%ae>' --all --grep=DONTBUILD | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+# The list of the people who have pushed the most patches when the tree has been closed:
+
+$ git log --format='%an <%ae>' --all --grep='CLOSED TREE' | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+
+# The list of people who have authored the most number of patches in 2012:
+
+$ git log --format='%an <%ae>' --since=2012-01-01 --all --no-merges | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+# The list of people who have authored the most number of patches in all time (yes, including the old CVS days!):
+
+$ git log --format='%an <%ae>' --all --no-merges | sed 's/@/--at--/' | grep -v ^commit | sort | uniq -c | sort -rn | head
+
+
+## Is there a tool that takes as input a proposed patch and a git repository, and identifies the developers are the best candidates for reviewing the patch? It would use the git history to identify the authors that have the most experience with the files / sections of code that are being changed.
+# I'm not aware of any such tool, but a baseline one is easy enough to write: will list the people who last touched $files_touched_by_patch, sorted by how many of their lines of code survive in the current version.
+
+(for file in $files_touched_by_patch; do
+    git blame -p "$file"
+done) \
+  | grep '^author ' | sed 's/^author *//' \
+  | sort | uniq -c | sort -nrk 1
+
+  
+## When a task is finished by a coworker I run the following script to obtain a list of files that got touched by the developer for the given task:
+
+git log --all-match --author="" --grep="" --name-only --format=format: HEAD | sort | uniq
+

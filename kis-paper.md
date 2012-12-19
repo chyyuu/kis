@@ -125,9 +125,9 @@ We analyze the statistic results based on  datasets, and present the root causes
 
 Based on the linux sucessfully development process near 20 years, the famous paper "The Cathedral and the Bazaar" and a lot of research papers, people almost acknowledged: Because of "Linus's Law", less formally speaking, "Given enough eyeballs, all bugs are shallow.",  "Release Early, Release Often" should be the critical part of linux development model. And this model will ensure the persistent dependabiility of Linux.
 
-From our root cause analysis, we consider above mention "Linus's Law" and  "Release Early, Release Often" model are unable to estabilish in current development situlation. First, there are not enought eyeballs. The kernel evelopers don't like to finding regressions and they are free to choose what to do. They like to use some analysis tools to help them to find some relatively simple regressions. But for some relatively complicated regressions， they have less interest and time. So these relatively complicated regressions will become to working bugs. When the end users or testers find the abnormal phenomenon because of these working bugs, they are hard to descript clearly the root cause, then the developer can not get enough information to fix bug. Second, "Release Early, Release Often" model didn't reduce all bugs. This model only reduce the lifetime of the simple regression bugs, but put the the relatively complex regression changed to the working bugs which need more efforts and time to fix. Along with the accumulation of these relatively complex bugs, the dependabiility of Linux will be reduced.[EXT4, Samsung bugs].
+From our root cause analysis, we consider above mention "Linus's Law" and  "Release Early, Release Often" model are unable to estabilish in current development situlation. First, there are not enought eyeballs. First, since Linux is community-developed; a customer cannot exert any pressure over the development team for a quick resolution of a bug. Kernel developers resolve bugs as they are reported. In addition, developers always balance between bug fixing and adding new features. The kernel evelopers like to use some analysis tools to help them to find some relatively simple regressions. But for some relatively complicated regressions， they have less time. So these relatively complicated and not very high severity regressions will become to working bugs. When the end users or testers find the abnormal phenomenon because of these working bugs, they are hard to descript clearly the root cause, then the developer can not get enough information to fix bug. Second, "Release Early, Release Often" model didn't reduce all bugs. This model only reduce the lifetime of the simple regression bugs, but put the the relatively complex regression changed to the working bugs which need more efforts and time to fix. Along with the accumulation of these relatively complex bugs, the dependabiility of Linux will be reduced.[EXT4, Samsung bugs].
 
-To make "Linus's Law" and  "Release Early, Release Often" model continue being valid in current development situlation, we will provide "enough eyeballs" which is the automative instant regression tesing service for every kernel develoeprs. Below sections will descript why and how about this new regression tesing paradigm for kernel development.
+To make "Linus's Law" and  "Release Early, Release Often" model to continue being valid in current development situlation, we should provide "enough eyeballs". The  "enough eyeballs" should be the automative instant regression tesing service for every kernel develoeprs. Below sections will descript why and how about this new regression tesing paradigm for kernel development.
 
 完成“title”、“Abstract”、"abstract"、“analysis of kernel development”部分的初稿
 ================================
@@ -140,17 +140,54 @@ To make "Linus's Law" and  "Release Early, Release Often" model continue being v
 
 3.1 Why we need KIS?
 ----------------------
+From the analysis results in section 2, we consider the more and accurate "eyebows" should have to provide by automated testing service. The ideal situlation is the automated testing service  can guarantee to provide accurate bug finding results as soon as the kernel developers push a patch commit in kernel git repository. 最终用户看到或测试的信息太粗糙，间隔太大，对开发者意义较小。The timely bug finding feedback will help the kernel developer saving a lot of time to fix the regression bugs. Then the kernel developer can put more effort on their new addon features but not the boring regression or working bug finding. The kernel development model will be changed to "Release Early, Release Often, Test Every Commits" model.
 
+3.2 the Challenges of KIS 
 
-3.2 Architecture of KIS
+Intuitive understanding of KIS's main work is Continuous Integration.  But current technology of CI can not handle the development of kernel.  All in all, "Large and Complex" of the kernel is the key problem. Now, Kernel has 10,000+ configurable features, 17,000,000+ lines of srouce code, 1,000+ parallel active developer, 480+ git trees, 400+ commits per day. All these factors mixed together will kill current CI systems.
+
+In a sumarry, there are three rough challenges to make KIS practical,  How to guarantee the instantaneity of testing process in below 1 hour? How to send the bug report with only root cause to the bug producer How to provide wide testing for more coverage of bug finding? In order to solve these problems, the KIS prototype of instant automated testing service is designed, implementated, and the initial feedback from kernel developers are very well.
+
+重要经验：
+
+没有好的测试设计的自动化可能会产生大量的活动，但没有什么价值。
+
+没有很好理解自动化可能性的测试设计，可能会低估一些最有价值的自动化机会。
+
+部分目标：
+
+迅速检测出新版本中的不稳定的变更
+
+尽可能迅速暴露回归测试中的程序错误
+
+快速报告问题，因为这会使程序错误修改更容易
+
+内容：
+冒烟测试
+
+单元测试
+
+负载测试
+
+性能基准测试
+
+配置测试
+
+耐力测试
+
+竞争条件测试
+
+组合测试
+
+3.3 Architecture of KIS
 ------------------------
 
 
-3.3 design and optimization of KIS
+3.4 design and optimization of KIS
 -------------------------------------
 
 
-3.4 implemtation of KIS
+3.5 implemtation of KIS
 ----------------------------
 
 
@@ -163,6 +200,11 @@ To make "Linus's Law" and  "Release Early, Release Often" model continue being v
 
 6 Discussion and Future Directions
 ----------------------------
+符号化执行的VMM
+
+比较两个版本带来的差异（两个虚拟机执行网络服务，只比较网络包的差异）
+
+只执行部分代码，其他部分代码可进一步改进
 
 
 Acknowledgments

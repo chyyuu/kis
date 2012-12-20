@@ -123,6 +123,8 @@ We analyze the statistic results based on  datasets, and present the root causes
 
   1. The activity and effort extent of adding new features is much higher than those of finding regression, and those of finding regression is higher than thos of fixing regressions. If a regressions bug becomes a working bugs, then the efforts and time to fix the bug will much expensive than regressions. If the find time of a working bugs is more late, then there are less probability to be fixed. So there are lot of unclear bug reports lead to the potential bugs is very hard to fix.
 
+[LKML]通过对LKML和LKBT的对比，发现开发阶段的很多bug没有进入到LKBT中，但在LKML中存在。说明了？
+
 Based on the linux sucessfully development process near 20 years, the famous paper "The Cathedral and the Bazaar" and a lot of research papers, people almost acknowledged: Because of "Linus's Law", less formally speaking, "Given enough eyeballs, all bugs are shallow.",  "Release Early, Release Often" should be the critical part of linux development model. And this model will ensure the persistent dependabiility of Linux.
 
 From our root cause analysis, we consider above mention "Linus's Law" and  "Release Early, Release Often" model are unable to estabilish in current development situlation. First, there are not enought eyeballs. First, since Linux is community-developed; a customer cannot exert any pressure over the development team for a quick resolution of a bug. Kernel developers resolve bugs as they are reported. In addition, developers always balance between bug fixing and adding new features. The kernel evelopers like to use some analysis tools to help them to find some relatively simple regressions. But for some relatively complicated regressions， they have less time. So these relatively complicated and not very high severity regressions will become to working bugs. When the end users or testers find the abnormal phenomenon because of these working bugs, they are hard to descript clearly the root cause, then the developer can not get enough information to fix bug. Second, "Release Early, Release Often" model didn't reduce all bugs. This model only reduce the lifetime of the simple regression bugs, but put the the relatively complex regression changed to the working bugs which need more efforts and time to fix. Along with the accumulation of these relatively complex bugs, the dependabiility of Linux will be reduced.[EXT4, Samsung bugs].
@@ -145,8 +147,183 @@ From the analysis results in section 2, we consider the more and accurate "eyebo
 3.2 the Challenges of KIS 
 
 Intuitive understanding of KIS's main work is Continuous Integration.  But current technology of CI can not handle the development of kernel.  All in all, "Large and Complex" of the kernel is the key problem. Now, Kernel has 10,000+ configurable features, 17,000,000+ lines of srouce code, 1,000+ parallel active developer, 480+ git trees, 400+ commits per day. All these factors mixed together will kill current CI systems.
+[这里不提kernel支持硬件和外设的多样性]
 
 In a sumarry, there are three rough challenges to make KIS practical,  How to guarantee the instantaneity of testing process in below 1 hour? How to send the bug report with only root cause to the bug producer How to provide wide testing for more coverage of bug finding? In order to solve these problems, the KIS prototype of instant automated testing service is designed, implementated, and the initial feedback from kernel developers are very well.
+
+
+------------------
+[http://www.itpub.net/thread-1746430-1-1.html]
+在大规模项目团队中可能遇到的问题
+对于小规模、短周期的项目来说，团队与持续集成会相处地非常融洽。而对于大规模、长周期项目的初期来说，也不会有太多的问题。此时常见的也是基本的持续集成模式就是：Build->test->package。然而，只要时间稍长一点儿，持续集成就会发出坏味道了。此时的症状包括：
+
+1. 作为开发人员
+要等很长时间才能知道是否可以提交代码了。如果你遵守“频繁提交”的原则，那么百人团队不间断的提交，会使集成服务器一直处于繁忙状态，而你不得不等待他人的build过了以后，才能看到自己提交的结果。
+要等很长时间才能知道我的提交是否通过了；
+如果build失败了，要花很长时间才能知道是否和自己的修改相关；
+既使提交了fix，也不知道自己的提交是否真的修复了这次构建；
+构建经常处于失败状态。
+
+2. 作为测试人员
+测试人员不知道到哪里拿哪一次的构建产物来进行测试；
+发布经理不知道当前各种各样的测试部署环境中，到底部署了哪个版本，包括哪些新功能或修改的bug；
+不确定在同一个构建里，所有组件的版本是否都是正确的；
+
+3. 作为项目经理
+不确定各个测试部署环境中的配置是否都与其上运行的构建相一致；
+不确定测试人员测试的是否在正确的运行环境上运行了正确的版本；
+
+4. 其他方面的问题
+所有的安装部署都需要手工操作。
+以上这些问题会给你的发布管理带来无限的问题和风险。那么，是否因为这种“持续闹心”就放弃持续集成呢？回答当然是否定的。Do it more if it hurts you. 不要因问题的暴露而放弃，相反，应该欢呼。因为这反映了发布过程中的问题与风险，是时候解决它们了。
+
+
+如何解决大规模项目中的持续交付问题
+由于大项目本身的复杂性，其解决方案也不能一概而论。下面以某大型项目为例，介绍其中的几个解决方法。
+
+1、项目基本信息描述
+该项目最初就试图建立一个好的持续集成环境和基础。由于是一个遗留系统，费了很大劲儿，才能够得到可工作的软件。然而，由于队伍不断壮大，而且环境也在不断变化，持续集成很快就无法达不到其预期目标了。怎么办呢？
+
+项目背景:
+项目是一个具有可配置性的Web 门户产品，面向不同行业的市场，可自己定制门户。该项目有一个遗留的代码库，而且可以肯定的说，在今后的一年半之内是无法摆脱这个遗留代码库的。而且，很多紧耦合的、不必要的臃肿代码，同时根本不存在有价值的测试代码。现在我们在逐步地重写代码，但还是不能删除它们，因为某些网站还要依赖于旧代码。事实上，这是一个.NET平台上基于SOA的网站。
+
+开发团队情况：
+团队是一个敏捷分布开发团队（三地协作，均有开发人员，且有时差）。整个团队有150多人，分成十几个团队，每个团队都有一个完成的结构（BA/DEV/QA），其中有一个是项目持续集成团队（项目之初，大约有五六个人，工作负荷很大，项目运行一段时间后只要两个人就足够了）。使用SVN做版本管理工具，在Windows2003上使用NAT, MSbuild和batch脚本进行构建管理，最初使用CC.NET做为持续集成服务器，后来使用Cruise(Go)。
+
+初始的持续集成环境：
+上面所述的持续集成问题在项目一开始就出现了，因为该项目有一个庞大的遗留代码库，而且使用的基本持续集成方式（build->test->package）而且测试人员手工部署进行各类测试。
+
+其初始的持续集成环境如下所示：
+
+
+
+第一步目标：尽量减少团队之间影响
+方法：先化整为零，再化零为整 ————根据团队划分代码（或者根据代码划分团队）。
+手段：DVCS＋私有持续集成服务器＋全局持续集成服务器
+每个团队都使用GIT做为中间源代码管理工具。这样，团队人员可以先提交到GIT。每个团队有自己的持续集成环境。一但构建成功，触发将代码提交到中心的源代码库，并触发中心源代码的持续集成。有一个专职团队负责全局持续集成的结果跟踪。
+益处：
+每个团队都可以天天提交代码 （如果这些代码没有让自己的构建失败，就说明至少能够通过初步检验）。
+任何一个团队的构建坏了，并不影响整个项目，而只是一个团队。
+有一个专职团队负责全局，不用每个团队都停下来。
+如果全局持续集成失败了，不用所有的团队停下。
+
+
+第二步目标：提高反馈速度
+方法：化整为零，再化零为整————测试分组运行。
+手段：并行化与中心仓库（Cruise的并行化与中心仓库）
+由于功能多且复杂，测试较多，运行很长。利用Cruise的并行化特点，每个团队将测试分成28组。一旦提交后，Cruise会将其放在28台机器上并行运行。运行后，将所有测试输出和结果上传到同一处（Cruise Server的中心仓库）。
+益处：1. 反馈时间大幅度缩短（原来30分钟以上，现在20分钟之内）。
+2. 易扩展：如果因测试增多而导致反馈周期长，可通过增加更多的机器解决。
+3. 易维护：对于测试分组和构建机器的增减来说，在Cruise中都非常容易，只要在同一处修改配置即可。
+4. 易追踪和Debug：所有的信息（包括artifacts）都放在同一处，能过Web访问。
+5. Single view (在同一个Web管理页面上，可以监控所有团队的构建状态)。
+
+
+第三步目标：减少手工操作
+方法：一键发布————自动化部署
+手段：使用持续发布管理工具Cruise (Cruise的dependency + Story Tracker plugin + audit)
+由于有很多个团队，每个团队都有多个测试环境。如果全部使用手工部署分花费很多时间。所以，每个团队建立三个构建管道，其目标分别为：(1)得到测试过的 installer；(2)部署到测试环境中；(3)将通过测试的installer部署到演示环境中。前一个构建成功后，就可以触发下一个（自动或手动）。
+益处：1. QA可以清晰识别需要测试哪个安装包，该安装包中含有哪些功能
+2. QA自己可能很容易地部署测试环境。
+3. 易于追踪功能的历史版本(在同一个pipeline中，所有的stage同一版本.而且在使用Pipeline dependency时，版本信息会向下游传递)。
+4. 易于掌握对各种部署环境的管理。
+
+
+-------
+企业持续集成成熟度模型简介之三——测试
+
+为了达到新手级成熟度 ，应该有一套快速测试在每次构建时都运行。这些测试给团队增加了信心：软件基本上在任何时间都能工作。测试一旦失败，开发团队会得到即时通知，从而在他们忘记这个问题的上下文之前就有机会去修复这些失败的测试。因此，对于这一级别来说，对测试失败通知的响应是非常重要的：如果一个团队测试失败却不响应的话，那它应该低于测试成熟度的入门级。
+
+ 
+
+中级成熟度 的团队会在这些同快速构建同时执行的测试的基础之上，扩大测试范围。企业持续集成的成熟测试是以多种多样的测试集合为特性的。一个中级团队不仅有快速测试和手工测试，而且还有自动化的功能测试。中级团队常常让持续集成系统同时运行一些静态源代码分析。静态分析可能不是每次都运行，但一定会周期性运行。而且一旦产生了某种严重的静态质量问题的话，一定修复之后才能发布。
+
+ 
+
+进阶级成熟度 是以“完整测试”为标志的。每种测试都提供其所能提供的最大价值。单元测试覆盖了系统中所有复杂代码与逻辑。功能测试覆盖了系统中所有的重要功能。也会有边界测试和随机测试。同时，还要频繁运行静态代码分析，并补充以工具支持的运行时分析和安全扫描来发现那些可能因测试不足或无法测试而遗漏的问题。测试可能被分配在多种系统下运行，以使能并行执行，从而提供快速的反馈。达到进阶级需要相当大的投入，然而对于那些缺陷的成本很高且需要能够保持高速前进的团队来说，对是非常重要的。假如没有这类需求的话，一般来说，中级可能是一个更适当的目标。
+
+ 
+
+在极端的情况下（也就是疯狂级成熟度 ），某些团队追求100％的测试覆盖率。尽管100%测试覆盖率的定义在变化，但它反映出至少每行代码都被测试覆盖到。在某些软件中，存在一个收益递减的点，在这一点上，对某行代码的自动化测试的价值要小对写测试的成本。追求100%的测试覆盖率意味着团队会做一些浪费的测试，然而其目的有可能是阻止因某些测试很有价值但很难写而不写测试找藉口。满足并保持100%的测试覆盖率可能也是一个自豪感与动力的源泉。对于进阶级团队来说，如果曾经发现的确错过了一些非常重要的测试的话，要求100%的测试覆盖也未尚不可。但对于大多数团队来说，简直可以说是变态啦。
+
+企业持续集成成熟度模型简介之四--报告
+
+
+很多工具在构建过程中都会产生报告。在一个团队中，如果某人利用一些工具来产生报告，并分析它，之后会根据它来做出行动的话，这个团队就已经是入门级成熟度 了。注意：此级别上，如果团队的其他人想利用这些数据做些事情时，需要联系这个人，索要相关信息。当到了新手级成熟度 时，每个角色组（开发、测试、部署等）都会公布这类信息。一个构建服务器也可能提供一些信息，比如哪些代码变化了，源代码的分析报告、单元测试结果或编译错误等。测试人员也会公布他们自动测试和手工测试的结果报告。部署与发布人员会公布某个版本在生产环境的运行时长、记录的缺陷，以及发布速度等信息。但每个角色几乎各自为战，跨角色信息传递通常是手工完成的。事实上，这个级别应该是业内的平均水平，尽管很多企业有比较强大的跨角色或部门的展示能力。
+
+
+中级成熟度 则有两个比较大的变化。第一个是每个角色组的关键信息集合可以被整个团队的其它人员访问。测试人员可以看到开发部分的信息：比如从上次测试人员测试过的版本到目前的版本有哪些文件变化了；开发人员能够知道测试人员正在测试哪个版本，目前的测试结果如何等。每个参与到版本生命周期的人都至少会得到对其有用的总结报告。有了更高的可视化程度，那么用于沟通基本数据所用的成本会减少，从而依据报告进行相应工作的时间就增加了。第二个是有历史报告。即不但有最近的活动报告，而且有过去的报告。比如可以拿出过去发布的测试数据与当前发布的数据进行对比。团队不但知道最近测试通过率是95%，还知道加了多少个测试，删除了多个测试，或者哪些测试之前通过了。95%的通过率比昨天的结果好，还是坏？我们是应该高兴，还是需要继续努力让它更高？
+
+
+而进阶级团队 能够利用历史报告信息进行趋势分析。中级团队记录了每个测试的失败，而进阶级团队利用报告分析出哪些测试经常被破坏。还可能分析出修改哪些文件后更有可能使单元测试失败？哪些会让功能测试套件失败？通过识别那些经常出错的代码帮助团队来发现哪些代码应该多加测试或进行重新设计实现。在特定的报告中，会有从不同的竖井（不同的角色团队）汇总在一起得到的数据，并互相迭加引用。进阶级团队也是真正使用这些特定报告并会采取相应行动的团队。生成这些可操作的跨功能团队的报告应该是企业持续集成的目标。而疯狂级报告是关于预测的。这样的疯狂级团队会收集每次交付客户之后得到的反馈度量信息，如从缺陷报告和接收到的技术支持的需求抽取相关信息。根据当前的一次发布与过去的某次发布之间的数据对比，团队应该可以预测在发布后的第一周内技术支持的压力有多大（比如，可能会接到多少个问题反馈）。在这种模式下，他们可能问更多有意思的问题，而不只是简单的问一下“我们的特性都做完了吗？”
+
+
+---------------------
+
+
+【http://research.cs.wisc.edu/htcondor/doc/nmi-lisa2006.pdf】
+Continuous integration and automated build-andtest
+systems are used by many large software projects
+[14]. The benefits of these systems are most often
+reported in discussions of agile software development
+[2, 12, 22]. Research literature on the general design
+of such systems, however, is limited.
+There are numerous commercial and open source
+continuous integration and automated build systems
+available [13]. Almost all provide the basic functionality
+of managing build and test execution on one or
+more computing resources. Three popular systems are
+the Mozilla Project’s Tinderbox system [20], the
+Apache Software Foundation’s Maven [16], and the
+CruiseControl toolkit [6]. The Tinderbox system requires
+autonomous agents on build machines to continuously
+retrieve source code from a repository, compile
+the application, and send status reports back to a central
+server. This is different from the approach taken by
+Maven and CruiseControl, where a central manager
+pushes builds and tests to computing resources and
+then retrieves the results when they are complete.
+
+-------------------------------------
+
+【http://server.dzone.com/articles/large-scale-continuous】
+
+For a given codebase, continuous integration (CI) scales poorly with the number of developers. Fundamentally there are a couple of forces at work here: with increasing developers, (1) the size of the codebase increases, and (2) commit velocity increases. These forces conspire in some nasty ways to create an painful situation around builds. Let’s take a look:
+
+Individual builds take longer. As the size of the codebase increases, it obviously takes longer to compile, test, deploy, generate reports and so forth. 
+More broken builds. Even if developers are disciplined about running private builds before committing, any given commit has a nonzero chance of breaking the build. So the more commits, the more broken builds.
+A broken build has a greater impact. In a “stop the line” shop, more developers means more people blocked when somebody breaks the build. In other shops, people just keep committing on top of broken builds, making it more difficult to actually fix the build. Either way it’s bad.
+Increased cycle times. After a certain point, the commit velocity and individual build times, taken together, become sufficiently high that the CI builds run constantly throughout the workday. In effect the build infrastructure is unavailable to service commits on a near-real-time basis, which means that developers must wait longer to get feedback on commits. It also means that when builds do occur, they involve multiple stacked-up commits, making it less clear exactly whose change broke the build. This again increases feedback cycle times. (Note that there are some techniques outside of modularization that can help here, such as running concurrent builds on a build grid.) Once the feedback cycle takes more than about ten or fifteen minutes, developers stop paying attention to build feedback.
+Individual commits become more likely to break the build. Even though the global commit velocity increases, individual developers may commit less often because committing is a painful and risky activity. Changelist sizes increase, which makes any given commit more likely to result in a broken build.
+Delayed integration. Painful and risky builds create an incentive to develop against branches and merge later, which is exactly the opposite of continuous integration. Integrations involving such branches consume disproportionately more time.
+General disruption of development activities. Ultimately the problems above become very serious indeed: developers spend a lot of time blocked, and the situation becomes a huge and costly distraction for both developers and management.
+Difficult to make improvements. When everybody is working on the same codebase, it’s harder to see where the problems are. It could be that a certain foundational bit of the architecture is especially apt to break the build, but there aren’t enough tests in place for it. (Meanwhile some other highly stable part of the system is consuming the “build budget” with its comprehensive test suite.) Or perhaps certain teams are have better processes in place (e.g., a policy of running private builds prior to committing) than others. Or it may be that some individual developers are simply careless about their commits. It’s hard to know, and thus difficult to manage and improve.
+
+【原因很好】
+==============
+
+There are various possible responses to the challenges above. One can, for example, scale the build infrastructure either vertically (e.g., more powerful build servers) or horizontally (e.g., build grids to eliminate build queuing). Another tactic is to manage test suites and tests themselves more carefully: individual tests shouldn’t run too long, test suites shouldn’t run too long, etc. Make sure people are using doubles (stubs, mocks, etc.) where appropriate. Etc. But such responses, while genuinely useful, are more like optimizations than root cause fixes. Vertical scaling eventually hits a wall, and horizontal scaling can become expensive if resources are treated as if they’re free, which often happens with virtualized infrastructure. Limiting test suite run times is of course necessary, but if it’s done over too broad a scope, it results in insufficient coverage.
+
+The root cause is too many cooks in the kitchen.
+
+
+Enable continuous integration by modularizing the codebase
+----------------------------
+
+It would be incorrect to draw the conclusion that continuous integration works only for small teams. CI works just fine even with large teams developing to large codebases. The trick is to break up the codebase so that everybody isn’t committing against the same thing. But what does that mean?
+
+Here’s what it doesn’t mean: it doesn’t mean that each team should branch the codebase and work off of branches until it’s time to merge. This just creates huge per-branch change inventory that has to be integrated at the end (or more likely toward the middle) of the release. Again this is the opposite of continuous integration.
+
+Instead, it’s the codebase itself that needs to be broken up. Instead of one large app or system with a single source repo and everybody committing against the trunk, the app or system should be modularized. If we can carve that up into services, client libraries, utility libraries, components, or whatever, then we should do that. There’s no one-size-fits-all prescription for deciding when a module should get its own source repo (as opposed, say, to having a bunch of Maven modules in a single source repo), but we can apply judgment based on the coherence and size of the code as well as the number of associated developers.
+
+Modularizing the code helps with the various continuous integration problems we highlighted above by reducing the size of the build, reducing the commit velocity, and removing incentives to delay integration. It has other important advantages outside of continuous integration, such as decoupling teams from a release planning perspective, making it possible to be more surgical when doing production rollbacks, and so forth. But the advantages to continuous integration are huge.
+
+Note that code modularization brings its own challenges. Code modules require interfaces, which in turn require coordination between teams. SOA/platform approaches will likely require significant architectural attention to address issues of service design, service evolution, governance and so forth. Moreover there will need to be systems integration testing to ensure that all the modules play nicely together, especially when they are evolving at different rates in a loosely coupled fashion. But the costs here are enabling in nature, with a return on investment: greater architectural integrity and looser coupling between teams. The costs we highlighted earlier in the post are pure technical debt.
+
+
+---------------------
+
+
 
 重要经验：
 
@@ -179,12 +356,69 @@ In a sumarry, there are three rough challenges to make KIS practical,  How to gu
 
 组合测试
 
+[http://en.wikipedia.org/wiki/Continuous_integration_server]
+The practicalities of doing this in a multi-developer environment of rapid commits are such that it's usual to trigger a short timer after each commit, then to start a build when either this timer expires, or after a rather longer interval since the last build.
+
+
+Advantages
+Continuous integration has many advantages:
+
+when unit tests fail or a bug emerges, developers might revert the codebase to a bug-free state, without wasting time debugging
+developers detect and fix integration problems continuously - avoiding last-minute chaos at release dates, (when everyone tries to check in their slightly incompatible versions).
+early warning of broken/incompatible code
+early warning of conflicting changes
+immediate unit testing of all changes
+constant availability of a "current" build for testing, demo, or release purposes
+immediate feedback to developers on the quality, functionality, or system-wide impact of code they are writing
+frequent code check-in pushes developers to create modular, less complex code[citation needed]
+metrics generated from automated testing and CI (such as metrics for code coverage, code complexity, and features complete) focus developers on developing functional, quality code, and help develop momentum in a team[
+
+Disadvantages
+initial setup time required
+well-developed test-suite required to achieve automated testing advantages
+
+
+[http://fscorner.blogspot.com/2006/08/continuous-integration-kills-large.html]
+Continuous integration kills large projects
+Continuous Integration is an widely accepted approach in software development. Martin Fowler describes has written een great article about it.
+
+However, for a large project it does not work. I will explain why not. Suppose that we have a big project of 100 software developers. Each of them is an excellent worker, and only 1% of their deliveries causes the daily build to fail. With 200 working days per year, a developer causes only 2 daily builds per year to fail. Can you beat that?
+
+Now although this is an excellent achievement, with 100 developers this will cause about 200 daily builds to fail, which is... every day the build fails!
+
+So every day, the build manager has to figure out what is wrong. And since each of the developers are excellent workers, the finding the true cause of the build failure is hardly ever a trivial challenge. So with the help of the developers that have delivered, it might well take the whole day before the problem is fixed. Then, the build has to be distributed across all development teams, all development sites and incorporated in the workspaces of the developers. There will be little time left for integrating the new build with the developer's changes in his private workspace. So... continuous integration leads to continuous build failures!
+
+In addition to the continuous build failures, when a developer must stay in sync with the latest build he has to integrate the latest build with his own changes every day. If this takes 1 hour, he will spend 4 hours per week on synchronization, which is at least 10%, day-in-day-out. They probably will get frustrated about going through their old changes every day, just because "build management provides a new build". So... continuous integration lead to frustration!
+
+But when developers get frustrated, they will get sloppy at their work. And when they are sloppy, they are more likely to deliver changes that cause build failures. Let's assume it increases from once per half year to once per quarter. That is 400 build failures per year, or 2 build failures per day. So build managers are confronted with more problems causing the build to fail, which probably requires more work to uncover and fix. One day will not be enough. So... continuous integration stops to be continuous!
+
+What can we do to overcome this problem?
+
+I think we can go in two directions:
+
+Reduce the scope of the continuous integration to smaller teams
+Replace continuous integration by iterative integration
+You can reduce the scope of the integration by dividing the large project into smaller teams, for example sub-system teams. Each team then performs continuous integration in a local scope, independent of the build of other teams. Only when it succeeds, the changes are promoted to a higher level of integration, for example system integration. Then when the system integration fails you have a choice. Either get the "guilty" developers involved in fixing the system integration, thus extracting them from their sub-system team temporarily, or force the "guilty" sub-system team to incorporate the changes of the (failing) system integration build in their sub-system build.
+
+The other approach is to go to a weekly integration, where all developers deliver to. It will be a "slow" variant of the continuous integration approach. With less frequent integration, the amount of integration problems will increase. But instead of some hours, you have some days to fix them. And developers lose less time on synchronization with the build since they only have to do it once per week. I have seen this work, but only for a relatively quick build. For a build that takes several hours to run, the cycles for fixing the build are too long and even weekly integration will get stuck.
+
+So my conclusion is that for large projects, it is better to divide the project into smaller teams, each with their own continuous build. It requires a more thorough (layered) integration strategy, and propagation of changes will be slower than with continuous integration. Continuous integration does not work for large projects.
+
 3.3 Architecture of KIS
 ------------------------
 
 
 3.4 design and optimization of KIS
 -------------------------------------
+
+根源：每次 commit是小的
+copy on change (COC)  类似临时的git obj?
+
+需要考虑安全性
+
+[The Yocto Project  http://www.aosabook.org/en/yocto.html]
+提出了灵活多层面（硬件，内核，software layer, app layer）的可配置性
+
 
 
 3.5 implemtation of KIS
@@ -206,6 +440,9 @@ In a sumarry, there are three rough challenges to make KIS practical,  How to gu
 
 只执行部分代码，其他部分代码可进一步改进
 
+软件测试服务伴随软件开发的过程，软件开发 release，也意味着测试结束。后面是维护了。
+
+给其他软件开发提供测试服务，给其他软件提供各种分析视图。
 
 Acknowledgments
 ----------------------------

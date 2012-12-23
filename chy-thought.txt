@@ -1,0 +1,47 @@
+我对kernel test的实现理解：
+
+1. 内核开发过程
+
+内核开发中用了是一个完整且复杂的git tree，大致git tree模型如下：
+mint-kernel      centos-kernel    ....
+   |                 |              |          
+ubuntu-kernel       fedroa-kernel  ....      mainline-linux-stable <--all update patchs from other distribution kernel,etc
+   |                 |              |           |    
+   ----------------------------------------------
+                     |
+			 mainline linux kernel (linus)
+			         |
+		      linux-next kernel (Stephen Rothwell)<---linux-mm/mmotm(Andrew Morton )
+			         |                                  |
+	 ------------------------------------------------------- 
+     |	      |       |     |       |        |      |      |
+	sound  security  fs   driver   sound    block   arch  other(mm,kernel,ipc)
+	                                                |
+			                      ---------------------------
+                                  |     |     |    |        |
+                                 x86   arm   mips  powerpc 	others
+	 
+							
+linux-next之下是树的根系，mainline/linux-next是树干，ubuntu/fedora之上等是树枝和树叶
+每个点有一个or多个maintaier. linus是顶层maintainer,不同类型的devlopers会把patchs发给不同的maintainer，maintainer把patch向上传。
+上层maintainer负责审核下层maintainer Or developer提交的patch。
+
+kernel开发过程分为三个阶段
+
+准备开发阶段
+developer/container开发某个feature/update等提交到mainline linux kernel之下的某个git tree的开发过程是新版本linux的前期准备阶段，其中的patch有可能被linus选择为某一新版本linux的feature。 
+
+选择开发阶段
+当linus打开mainline linux kernel的merge windows，表示一个新版本linux的开发阶段开始，linux审核过的patch经过2~3个月的改进和稳定开发后，就会发表一个新版本的linux。自此一个新版本linux的开发阶段结束，下一个版本的linux的开发开始。 
+
+维护开发阶段
+linus发布一个完整的新版本linux，并移交到mainline-linux-stable tree进行维护管理，且mainline之上的各个linux distribution的vendor基于新版本linux，打上自己新的补丁，形成特定distribution的linux kernel，如果此过程中树中节点与此版本相关稳定性patch会发给mainline-linux-stable分支，形成新版本linux的维护版本。
+
+上诉三个开发阶段形成可并行进行的流水线。
+
+2. kernel test实现过程
+
+基本流程：
+当某个kernel developer给某个tree（包括mainline linux和其之下的tree）
+
+

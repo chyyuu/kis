@@ -158,25 +158,35 @@ Intuitive understanding of KIS's main work is Continuous Integration.  But curre
 
 3.3 Architecture of KIS
 ------------------------
-图1显示了kis的architecture。图2显示了kis的工作流程（或者合并为一个图）。kis主要包含4个部分
+图1显示了kis的architecture和工作流程。kis主要包含4个部分
 
 1. pulling commit module
-2. compiling&static analysis module
-3. building&dynamic analysis module
+2. static analysis module
+3. dynamic analysis module
 4. bug report moudling
 
-pulling commit module主要是随时从内核开发者处取得更新的代码。这里实现了3个底层机制：（1）轮询获取更新代码。为了避免对git server的干扰，这里没有采用对git server加入commit notify hook的手段来获知kernel developer每次提交的信息。而采用了定期查询的方式来感知commit的情况。目前重点对180+个git tree进行定期查询。 These trees produce 40 new branch heads and 400 new commits on an average working day. 每次查询的间隔是5秒？？？，这意味着大约15分钟查找一个git tree的变化情况。这种方法的好处是可以尽量杜绝了对已有开发环境的干扰。如果git server能够提供commit notify hook接口，那么查询将更加及时。（2）产生kernel config。根据每个新的commit，形成与此commit相关的kernel config，减少kernel config的空间，从而减少内核编译和动静态分析的次数；（3）形成编译和静态分析的target list。这里的target list是一个包括了由git tree, branch, commit, kernel config的4层嵌套列表。4层嵌套列表中的列表项代表了一个要被便于和静态分析的linux kernel。形成的4层嵌套列表中的列表项接下来的编译和分析将据此进行工作。
+pulling commit module主要是随时从内核开发者处取得更新的代码。这里实现了3个底层机制：（1）轮询获取更新代码。为了避免对git server的干扰，这里没有采用对git server加入commit notify hook的手段来获知kernel developer每次提交的信息。而采用了定期查询的方式来感知commit的情况。目前重点对300+个git tree进行定期查询。 These trees produce 40~80 new branch heads and 400 new commits on an average working day. 每次查询的间隔是0.5秒？？？，这意味着大约2.5分钟查找一个git tree的变化情况。这种方法的好处是可以尽量杜绝了对已有开发环境的干扰。如果git server能够提供commit notify hook接口，那么查询将更加及时。（2）产生kernel config。根据每个新的commit，形成与此commit相关的kernel config，减少kernel config的空间，从而减少内核编译和动静态分析的次数；（3）形成编译和静态分析的target list。这里的target list由形式为(git tree, branch, commit, kernel config)的四元组表项组成。每个表项代表了一个要被分析的特定linux kernel。这个包含更新信息的kernel将被编译和分析。
 
-compiling&static analysis module主要是在本机中保存的git tree中更新的changeset进行编译和静态分析，确保能够快速定位编译错误和静态分析出的bug。为了支持高效完成上诉工作，这里实现了6个底层机制：（（2）执行编译和静态分析。每工作日中，被监视的180个git tree会形成40个新的branchs，400个新commits，本module需要对这些commits对应的kernel进行近140 个kernel config的配置，并进行编译和静态测试，包括sparse，smatch  coccinelle。如果在此过程中不进行性能优化，将会执行得非常缓慢。（3）监视和记录执行过程和产生结果。监视和记录在编译和静态分析中，执行的编译命令和静态分析命令和命令参数，执行命令过程中读取的内核源文件信息、执行命令过程中生成的内核目标代码信息，为后续编译和静态分析性能优化提供充分的数据依据。（4）查找静态错误。如果在此过程中发现bug，将基于（1）中形成的target commits列表进行二分查找，定位产生bug的具体commit。存储编译和静态分析过程中的编译错误信息和静态分析出的bug信息，为bug report模块提供数据。（5）存储成功的编译结果。即存储编译好的linux kernel，为building&dynamic analysis module提供可执行的linux kernel。（6）安全执行。为了确保kernel编译过程的安全性，kernels are built inside chroot jails. 
+static analysis module主要是在本机中保存的git tree中更新的changeset进行编译和静态分析，确保能够快速定位编译错误和静态分析出的bug。为了支持高效完成上诉工作，这里实现了5个底层机制：（1）执行编译和静态分析。每工作日中，被监视的300个git tree会形成新的branches和新的commits，本module需要对这些commits对应的kernel进行近140 个kernel config的配置，并进行编译和静态测试，包括sparse，smatch  coccinelle。如果在此过程中不进行性能优化，整个过程将会执行得非常缓慢。（2）监视和记录执行过程和产生结果。监视和记录在编译和静态分析中，执行的编译命令和静态分析命令和命令参数，执行命令过程中读取的内核源文件信息、执行命令过程中生成的内核目标代码信息，为后续编译和静态分析性能优化提供充分的数据依据。（3）查找静态错误。如果在此过程中发现bug，将基于pulling commit module中形成的target commits列表进行二分查找，定位产生bug的具体commit。存储编译和静态分析过程中的编译错误信息和静态分析出的bug信息，为bug report模块提供数据。（4）存储成功的编译结果。即存储编译好的linux kernel，为building&dynamic analysis module提供可执行的linux kernel。（5）安全执行。为了确保kernel编译过程的安全性，kernels are built inside chroot jails. 
 
-building&dynamic analysis module主要是基于compiling&static analysis module编译成功的linux kernel，建立一个可执行的系统环境，通过虚拟机和模拟器进行动态运行测试与分析，来快速准确地发现其中潜在的bug。为了支持高效完成上诉工作，这里实现了四个底层机制：（1）构建动态测试系统环境。目前主流的硬件平台是X86-32、X86-64和ARM。由于我们的测试平台是X86-64环境，所以可以通过KVM虚拟机来支持运行X86-32和X86-64平台，通过QEMU模拟器来支持ARM平台，将来也可容易地扩展到其他硬件平台；（2）执行动态测试系统环境。这里主要执行boot test和bug动态分析测试benchmark，包括trinity，mem perf, cpu hotplug等。为了充分利用多核服务器的性能，该模块在一台机器上将运行多个KVM虚拟机和模拟器。（3）查找动态错误。如果在执行过程中发现bug，将基于（1）中形成的列表进行二分查找，定位产生bug的具体内核对应的commit 值。如果是不可重现错误，目前采用重复多次（100，1000？？？）执行的方法，来尽量产生更多的错误信息。存储动态分析过程中产生的bug信息，为bug report模块提供数据。（4）监视和记录执行过程中的热点内存。在Linux内核对虚拟机和模拟器的内存使用情况进行动态检查，目的是查找内容一致的内存，为进一步的调度和内存共享优化提供参考数据。
+dynamic analysis module主要是基于static analysis module编译成功的linux kernel，建立一个可执行的系统环境，通过虚拟机和模拟器进行动态运行测试与分析，来快速准确地发现其中潜在的bug。为了支持高效完成上诉工作，这里实现了4个底层机制：（1）构建动态测试系统环境。目前主流的硬件平台是X86-32、X86-64和ARM。由于我们的测试平台是X86-64环境，所以可以通过KVM虚拟机来支持运行X86-32和X86-64平台。通过QEMU模拟器来支持ARM平台，将来也可容易地扩展到其他硬件平台；（2）执行动态测试系统环境。这里主要执行boot test和bug动态分析测试benchmark，包括trinity，mem perf, cpu hotplug等。为了充分利用多核服务器的性能，该module在一台机器上将运行多个KVM虚拟机和模拟器。（3）查找动态错误。如果在执行过程中发现bug，将基于（1）中形成的列表进行二分查找，定位产生bug的具体内核对应的commit 值。如果是不可重现且导致系统崩溃的错误，目前采用重复多次（100，1000？？？）执行的方法，来尽量产生更多的错误信息。在动态分析过程中产生的bug信息将分类存储，为bug report模块提供数据。（4）监视和记录执行过程中的热点内存。在Linux内核对虚拟机和模拟器的内存使用情况进行动态检查，目的是查找内容一致的内存，为进一步的调度和内存共享优化提供参考数据。
 
-bug report moudling主要是根据compiling&static analysis module和building&dynamic analysis module产生的bug数据进行整理和分析，来准确地定位bug的来源，并提供精确的信息给产生bug的kernel developer。这里实现了3个底层机制：（1）过滤编译产生的冗余bug信息。gcc compiler如果发现编译错误，将产生很多冗余的编译错误信息，这就需要对此进行过滤和XXX技术。这里对编译输出的bug信息进行进行进一步分析，找出bug的源信息，和产生此源信息的内核配置、编译参数配置，并根据commit中的commiter信息找到kernel developer的email信息，从而把便于定位和重现错误的信息发给产生此错误的开发者；（2）过滤静态分析产生的冗余bug信息。当前的各种静态分析工具会产生大量的false positive信息，如果把这些信息发给内核开发者，开发者会很厌烦其中的无用信息，为此我们对当前用到的静态分析工具产生的信息采用XXX技术进行了分析，尽量过滤了与内核无关的false positive信息，从而把不包含false positive信息发给产生此错误的开发者；（3）过滤动态分析产生的bug信息。在动态执行过程中，在启动阶段可能不产生或产生很少的数据就死机了，也可能执行到某个阶段产生可重现或无法经常重现的kernel dump信息，甚至可能导致KVM或QEMU崩溃等，这里需要针对这三种情况进行进一步分析，通过KVM或QEMU的执行来获得内核的CPU状态和内存状态，并根据内核的编译产生的符号信息建立映射关系，从而提供给内核开发者有效的内核函数执行栈信息、关键数据结构信息等，KVM或QEMU崩溃的执行状态信息，便于内核开发者定位错误。（需要再看看 zyy的log定位文章！！！）
+bug report moudling主要是根据compiling&static analysis module和building&dynamic analysis module产生的bug数据进行整理和分析，来准确地定位bug的来源，并提供精确的信息给产生bug的kernel developer。这里实现了3个底层机制：（1）过滤编译产生的冗余bug信息。gcc compiler如果发现编译错误，将产生很多冗余的编译错误信息，这就需要对此进行人工初筛、模式匹配和机器学习技术。这里对编译输出的bug信息进行进行进一步分析，找出bug的root cause信息，和产生此源信息的内核配置、编译参数配置，并根据commit中的commiter信息找到kernel developer的email信息，从而把便于定位和重现错误的信息发给产生此错误的开发者；（2）过滤静态分析产生的冗余bug信息。当前的各种静态分析工具会产生大量的false positive信息，如果把这些信息发给内核开发者，开发者会很厌烦其中的无用信息，为此我们对当前用到的静态分析工具产生的信息采用模式匹配过滤与内核无关的false positive信息，从而把不包含false positive信息发给产生此错误的开发者；（3）过滤动态分析产生的bug信息。在动态执行过程中，在启动阶段可能不产生或产生很少的数据就死机了，也可能执行到某个阶段产生可重现或无法经常重现的kernel dump信息，甚至可能导致KVM或QEMU崩溃等，这里需要针对这三种情况进行进一步分析，通过KVM或QEMU的执行来获得内核的CPU状态和内存状态，并根据内核的编译产生的符号信息建立映射关系，从而提供给内核开发者有效的内核函数执行栈信息、关键数据结构信息等，KVM或QEMU崩溃的执行状态信息，便于内核开发者定位错误。（需要再看看 zyy的log定位文章！！！）
 
 
 3.4 optimization of KIS
 -------------------------------------
-从kis的执行流程可以看到，如果没有相应的优化手段，在某台机器（可给出配置）上完成对一个commit的多配置的编译，静态分析，动态分析和bug r report的一次工作工程，要花费的时间是？？？（应该有一个测试统计说明，表明一天只能测试多少个commit）。这远远无法应对内核的每日正常开发工作。 There are various possible responses to the challenges above. One can, for example, scale the build infrastructure either vertically (e.g., more powerful build servers) or horizontally (e.g., build grids to eliminate build queuing). Another tactic is to manage test suites and tests themselves more carefully: individual tests shouldn’t run too long, test suites shouldn’t run too long, etc. Make sure people are using doubles (stubs, mocks, etc.) where appropriate. Etc. But such responses, while genuinely useful, are more like optimizations than root cause fixes. Vertical scaling eventually hits a wall, and horizontal scaling can become expensive if resources are treated as if they’re free, which often happens with virtualized infrastructure. Limiting test suite run times is of course necessary, but if it’s done over too broad a scope, it results in insufficient coverage.
+KIS的执行效果取决于三个重要因素：快速的结果反馈，准确无多余的bug report，全面的测试覆盖。这三者其实有很多矛盾，为了做到全面的测试覆盖可能会产生多余或虚假的bug report，且会花费大量的时间。所以在对上述三个因素分别进行优化的同时，还需有一定的折中。
+
+时间优化：
+
+从kis的执行流程可以看到，如果没有相应的优化手段，在某台机器（可给出配置）上完成对一个commit的多配置的编译，静态分析，动态分析和bug rreport的一次工作工程，要花费的时间是
+
+Total Time=T(pull commit)+Num(kernel configs) * T(compiling) + Num(Static Test Anaysis) * T(static testing) + Num(kernel configs) * ( T(boot) +Num(Static Test Anaysis) * T(static testing)) * 2 * Num(kernel configs)*T(bug reporting)
+
+在一台机器上的初步统计，Total Time 是？？？（应该有一个测试统计说明，表明一天只能测试多少个commit）。
+
+这远远无法应对内核的每日正常开发工作。 There are various possible responses to the challenges above. One can, for example, scale the build infrastructure either vertically (e.g., more powerful build servers) or horizontally (e.g., build grids to eliminate build queuing). Another tactic is to manage test suites and tests themselves more carefully: individual tests shouldn’t run too long, test suites shouldn’t run too long, etc. Make sure people are using doubles (stubs, mocks, etc.) where appropriate. Etc. But such responses, while genuinely useful, are more like optimizations than root cause fixes. Vertical scaling eventually hits a wall, and horizontal scaling can become expensive if resources are treated as if they’re free, which often happens with virtualized infrastructure. Limiting test suite run times is of course necessary, but if it’s done over too broad a scope, it results in insufficient coverage.
 
 
 Store Data in memory : 所有的数据存储在内存中，包括git repo, 编译生成的目标文件，内核执行文件, initrd等(都在内存中？？？）涉及到数据压缩，内存紧致/压缩和执行内存共享，清除不必要的内核中的io buffer。可比较细地讲解一下执行内存共享。
@@ -187,8 +197,15 @@ buffer/cache reusable Data  : ccache 工具通过将头文件高速缓存到源�
 
 delta executing: 在二分查找动态执行中的bug时有用。 多次动态执行查找bug很耗时间，构造一个特殊的内核，同时包含有某个feature和没有某个feature的kernel，在差别处有特殊的插桩指令。没有执行到差别处，所有的情况一样，这样会节省一半的时间。当执行到插桩处时，形成新的一个执行环境，这时的执行情况和没有delta execution优化时一样。
 
+覆盖（converage）优化：
 
+对常用的config进行分析：我们需要对常用的硬件平台和内核功能进行编译和静态分析，这样确保针对大多数的内核使用情况下，不会出现bug。为此我们选择了在Linux内核中的x86、ARM、MIPS、PowerPC作为重点编译的对象，并选择kernel source中的defconfig作为必选kernel config。另外，通过分析与目标kernel对应的commit，找出其相关的config，把它们enable进行分析。最后，还采用randconfig方式随机生成一定数量的合法kernel config，来覆盖其他一些不常用的配置选项。
 
+对于动态执行进行分析：目前动态执行主要是基于x86进行，但linux可支持很多CPU平台以及各种各样的外设，如果尽量全面地对这些硬件平台和外设进行测试分析是一个很困难的问题。目前的方法是，通过模拟器来解决对非x86 CPU的分析，这里采用的是qemu模拟器，它可以模拟？？？种CPU和？？？外设。虽然qemu可以模拟大部分的CPU架构，但qemu无法模拟足够多的外设。为此，我们基于S2E设计了符号外设，可以在没有实际外设模拟的情况下，结合qemu模拟器专门对外设进行基本的非逻辑功能方面的bug分析与测试。
+
+精度优化：
+
+各种静态和动态分析会产生大量的分析信息，这里面有许多多余的信息和false positive信息。如果把这些信息一股脑地发给kernel developer，kernel devloper将淹没在对真正问题 （root cause）的分析中，最终经常出现放弃对bug report处理的现象。为此，（2）过滤静态分析产生的冗余bug信息。当前的各种静态分析工具会产生大量的false positive信息，如果把这些信息发给内核开发者，开发者会很厌烦其中的无用信息，为此我们对当前用到的编译器、运行产生的log信息和每个静态分析工具产生的信息采用人工初筛和机器学习技术进行了分析，得出对开发者有意义的输出信息正则表达式模版，并基于信息模版对各种工具产生的信息进行模式匹配。尽量过滤了与内核无关的false positive信息，从而把不包含false positive信息发给产生此错误的开发者。
 
 
 4  Preliminary Results
